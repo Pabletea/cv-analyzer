@@ -47,12 +47,16 @@ class PdfExtractorService
     }
 
     private function cleanText(string $text):string {
-        // Elimina caracteres extraños y espacios redundantes
-        $text = preg_replace('/[^\x20-\x7E\xC0-\xFF\n\r\t]/', ' ', $text);
-        $text = preg_replace('/[ \t]+/', ' ', $text);
-        $text = preg_replace('/\n{3,}/', "\n\n", $text);
 
-        return trim($text);
+    if (!mb_check_encoding($text, 'UTF-8')) {
+        $text = mb_convert_encoding($text, 'UTF-8', 'ISO-8859-1');
+    }
+
+    $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', ' ', $text);
+    $text = preg_replace('/[ \t]+/u', ' ', $text);
+    $text = preg_replace('/\n{3,}/u', "\n\n", $text);
+
+    return trim($text);
     }
 }
 
