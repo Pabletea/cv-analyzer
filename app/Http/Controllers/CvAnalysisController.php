@@ -7,6 +7,7 @@ use App\Jobs\AnalyzeCvJob;
 use App\Models\AnalysisConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Models\CvBatch;
 
 class CvAnalysisController extends Controller
 {
@@ -85,5 +86,72 @@ class CvAnalysisController extends Controller
 
     public function listConfigs(): JsonResponse{
         return response()->json(AnalysisConfig::all());
+    }
+
+    public function analyzeBatch(Request $request): JsonResponse
+    {
+        $request->validate([
+            'cvs'         => 'required|array|min:1|max:20',
+            'cvs.*'       => 'required|file|mimes:pdf,txt|max:5120',
+            'config_id'   => 'nullable|exists:analysis_configs,id',
+        ]);
+
+        $config = $request->config_id
+            ? AnalysisConfig::find($request->config_id)
+            : null;
+
+        $batch = CvBatch::create([
+            'config_id' => $config?->id,
+            'status'    => 'processing',
+            'total'     => count($request->file('cvs')),
+            'processed' => 0,
+        ]);
+
+        foreach ($request->file('cvs') as $file) {
+            $analysis = CvAnalysis::create([
+                'filename'  => $file->getClientOriginalName(),
+                'status'    => 'pending',
+                'config_id' => $config?->id,
+                'batch_id'  => $batch->id,
+            ]);
+
+            $filePath = $file->store('cvs', 'local');
+
+            AnalyzeCvJob::dispatch($analysis, $filePath, $config);
+        }
+
+        return response()->json([
+            'batch_id' => $batch->id,
+            'total'    => $batch->total,
+            'status'   => $batch->status,
+            'message'  => "{$batch->total} CVs recieved. Processing them.",
+        ], 202);
+    }
+
+    public function batchStatus(int $id): JsonResponse
+    {
+        $batch = CvBatch::findOrFail($id);
+
+        return response()->json([
+            'batch_id'  => $batch->id,
+            'status'    => $batch->status,
+            'total'     => $batch->total,
+            'processed' => $batch->processed,
+            'progress'  => round(($batch->processed / $batch->total) * 100) . '%',
+        ]);
+    }
+
+    public function batchRanking(int $id): JsonResponse
+    {
+        $batch = CvBatch::with('config')->findOrFail($id);
+
+        return response()->json([
+            'batch_id'  => $batch->id,
+            'status'    => $batch->status,
+            'config'    => $batch->config,
+            'total'     => $batch->total,
+            'processed' => $batch->processed,
+            'ranking'   => $batch->ranking(),
+        ]);
     }
 }

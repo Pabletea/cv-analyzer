@@ -15,6 +15,7 @@ class CvAnalysis extends Model
         'result',
         'error_message',
         'config_id',
+        'batch_id',
     ];
 
     protected $casts = [
@@ -35,5 +36,10 @@ class CvAnalysis extends Model
 
     public function config(){
         return $this->belongsTo(AnalysisConfig::class, 'config_id');
+    }
+
+    public function batch()
+    {
+        return $this->belongsTo(CvBatch::class, 'batch_id');
     }
 }

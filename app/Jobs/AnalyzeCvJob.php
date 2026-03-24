@@ -28,13 +28,12 @@ class AnalyzeCvJob implements ShouldQueue
     public function handle(
         PdfExtractorService $extractor,
         CvAnalyzerService   $analyzer
-    ): void{
-        try{
-
+    ): void {
+        try {
             $this->analysis->update(['status' => 'processing']);
 
             $text   = $extractor->extract($this->filePath);
-            $result = $analyzer->analyze($text);
+            $result = $analyzer->analyze($text, $this->config);
 
             $this->analysis->update([
                 'cv_text' => $text,
@@ -42,16 +41,27 @@ class AnalyzeCvJob implements ShouldQueue
                 'result'  => $result,
             ]);
 
-        }catch(Throwable $e){
+        } catch (Throwable $e) {
             Log::error('CvAnalysis failed', [
                 'analysis_id' => $this->analysis->id,
-                'error' => $e->getMessage(),              
+                'error'       => $e->getMessage(),
             ]);
 
             $this->analysis->update([
                 'status'        => 'failed',
                 'error_message' => $e->getMessage(),
             ]);
+        } finally {
+            // Actualiza el progreso del batch si existe
+            if ($this->analysis->batch_id) {
+                $batch = \App\Models\CvBatch::find($this->analysis->batch_id);
+                if ($batch) {
+                    $batch->increment('processed');
+                    if ($batch->isCompleted()) {
+                        $batch->update(['status' => 'completed']);
+                    }
+                }
+            }
         }
     }
 }
