@@ -62,6 +62,7 @@ class CvAnalyzerService
             [FIN_CV]
 
             Responde SOLO con el JSON. Ningún texto fuera del JSON.
+            Responde siempre en inglés.
             PROMPT;
     }
 
