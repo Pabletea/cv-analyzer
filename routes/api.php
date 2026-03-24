@@ -1,0 +1,8 @@
+<?php
+
+use App\Http\Controllers\CvAnalysisController;
+use Illuminate\Support\Facades\Route;
+
+Route::post('/cv/analyze',         [CvAnalysisController::class, 'analyze']);
+Route::get('/cv/{id}/status',      [CvAnalysisController::class, 'status']);
+Route::get('/cv/{id}/report',      [CvAnalysisController::class, 'report']);
