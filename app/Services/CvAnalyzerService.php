@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-
+use App\Models\AnalysisConfig;
 use OpenAI\Laravel\Facades\OpenAI;
 use Exception;
 
@@ -10,9 +10,9 @@ class CvAnalyzerService
 {
     private string $model = 'llama-3.3-70b-versatile';
 
-    public function analyze(string $cvText): array{
+    public function analyze(string $cvText, ?AnalysisConfig $config = null): array{
 
-        $prompt = $this->buildPrompt($cvText);
+        $prompt = $this->buildPrompt($cvText, $config);
 
         $response = OpenAI::chat()->create([
             'model'       => $this->model,
@@ -36,33 +36,45 @@ class CvAnalyzerService
         return $this->parseResponse($content);
     }
     
-    private function buildPrompt(string $cvText): string{
+    private function buildPrompt(string $cvText, ?AnalysisConfig $config = null): string{
+
+        // Criterios dinámicos según la config
+        $position    = $config?->position ?? 'backend developer';
+        $minYears    = $config?->min_years_experience ?? 2;
+        $skills      = $config?->required_skills
+            ? implode(', ', $config->required_skills)
+            : 'PHP, MySQL, APIs REST';
+        $extraPrompt = $config?->prompt_extra
+            ? "\nInstrucciones adicionales: {$config->prompt_extra}"
+            : '';
+
+
         return <<<PROMPT
-            Analiza el siguiente CV y devuelve ÚNICAMENTE un JSON con este esquema exacto:
+            Analyze the following CV for the position of {$position} and return ONLY a JSON with this exact schema:
 
             {
-            "score": <número del 0 al 10>,
-            "summary": "<resumen profesional en 2-3 frases>",
-            "strengths": ["<fortaleza 1>", "<fortaleza 2>", "<fortaleza 3>"],
-            "weaknesses": ["<debilidad 1>", "<debilidad 2>"],
-            "years_of_experience": <número>,
+            "score": <number from 0 to 10>,
+            "summary": "<professional summary in 2-3 sentences>",
+            "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
+            "weaknesses": ["<weakness 1>", "<weakness 2>"],
+            "years_of_experience": <number>,
             "main_skills": ["<skill 1>", "<skill 2>", "<skill 3>"],
-            "recommended_role": "<rol recomendado>",
-            "fit_for_position": <true o false>,
-            "red_flags": ["<red flag si existe>"]
+            "recommended_role": "<recommended role>",
+            "fit_for_position": <true or false>,
+            "red_flags": ["<red flag if any>"]
             }
 
-            Criterios de evaluación:
-            - fit_for_position es true si el candidato tiene más de 2 años de experiencia en desarrollo backend
-            - score refleja la solidez técnica general del perfil
-            - red_flags puede ser un array vacío [] si no hay ninguno
+            Evaluation criteria:
+            - fit_for_position is true if the candidate has at least {$minYears} years of experience
+            - The following skills will be especially valued: {$skills}
+            - score reflects how well the profile fits the position of {$position}{$extraPrompt}
+            - Always respond in English, regardless of the CV language
 
-            [INICIO_CV]
+            [CV_START]
             {$cvText}
-            [FIN_CV]
+            [CV_END]
 
-            Responde SOLO con el JSON. Ningún texto fuera del JSON.
-            Responde siempre en inglés.
+            Respond ONLY with the JSON. No text outside the JSON.
             PROMPT;
     }
 

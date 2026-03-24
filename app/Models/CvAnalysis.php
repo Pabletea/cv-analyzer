@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\AnalysisConfig;
+
 use Illuminate\Database\Eloquent\Model;
 
 class CvAnalysis extends Model
@@ -12,6 +14,7 @@ class CvAnalysis extends Model
         'status',
         'result',
         'error_message',
+        'config_id',
     ];
 
     protected $casts = [
@@ -28,5 +31,9 @@ class CvAnalysis extends Model
 
     public function isFailed():bool{
         return $this->status === 'failed';
+    }
+
+    public function config(){
+        return $this->belongsTo(AnalysisConfig::class, 'config_id');
     }
 }

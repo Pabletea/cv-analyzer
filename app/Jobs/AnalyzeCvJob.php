@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\AnalysisConfig;
 use App\Models\CvAnalysis;
 use App\Services\CvAnalyzerService;
 use App\Services\PdfExtractorService;
@@ -19,7 +20,8 @@ class AnalyzeCvJob implements ShouldQueue
 
     public function __construct(
         private CvAnalysis  $analysis,
-        private string      $filePath
+        private string      $filePath,
+        private ?AnalysisConfig $config = null
     )
     {}
 
