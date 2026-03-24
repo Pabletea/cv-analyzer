@@ -2,26 +2,54 @@
 
 namespace App\Jobs;
 
+use App\Models\CvAnalysis;
+use App\Services\CvAnalyzerService;
+use App\Services\PdfExtractorService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AnalyzeCvJob implements ShouldQueue
 {
     use Queueable;
 
-    /**
-     * Create a new job instance.
-     */
-    public function __construct()
-    {
-        //
-    }
+    public int $tries = 3;
+    public int $timeout = 120;
 
-    /**
-     * Execute the job.
-     */
-    public function handle(): void
-    {
-        //
+    public function __construct(
+        private CvAnalysis  $analysis,
+        private string      $filePath
+    )
+    {}
+
+    public function handle(
+        PdfExtractorService $extractor,
+        CvAnalyzerService   $analyzer
+    ): void{
+        try{
+
+            $this->analysis->update(['status' => 'processing']);
+
+            $text   = $extractor->extract($this->filePath);
+            $result = $analyzer->analyze($text);
+
+            $this->analysis->update([
+                'cv_text' => $text,
+                'status'  => 'completed',
+                'result'  => $result,
+            ]);
+
+        }catch(Throwable $e){
+            Log::error('CvAnalysis failed', [
+                'analysis_id' => $this->analysis->id,
+                'error' => $e->getMessage(),              
+            ]);
+
+            $this->analysis->update([
+                'status'        => 'failed',
+                'error_message' => $e->getMessage(),
+            ]);
+        }
     }
 }
